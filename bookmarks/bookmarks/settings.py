@@ -21,7 +21,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-r7@xqp!cb!$fg=a45vu&o(47kmka#sc#7p3&c32v2a71%3z73+'
+from .values import SECRET_KEY
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -43,10 +43,12 @@ INSTALLED_APPS = [
     'django_extensions',
     'images.apps.ImagesConfig',
     'easy_thumbnails',
-    'actions.apps.ActionsConfig'
+    'actions.apps.ActionsConfig',
+    # 'debug_toolbar',
 ]
 
 MIDDLEWARE = [
+    # 'debug_toolbar.middleware.DebugToolbarMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -149,8 +151,8 @@ AUTHENTICATION_BACKENDS = [
     'social_core.backends.google.GoogleOAuth2',
 ]
 
-SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = '340998199334-0rsvpn3ladnncjlpkfcc6eg7ac5dcm2e.apps.googleusercontent.com'
-SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = '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'
+from .values import SOCIAL_AUTH_GOOGLE_OAUTH2_KEY
+from .values import SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET
 
 
 SOCIAL_AUTH_PIPELINE = [
@@ -168,3 +170,9 @@ SOCIAL_AUTH_PIPELINE = [
 ABSOLUTE_URL_OVERRIDES = {
     'auth.user': lambda u: reverse_lazy('user_detail', args=[u.username])
 }
+INTERNAL_IPS = [
+    '127.0.0.1',
+]
+REDIS_HOST = 'localhost'
+REDIS_PORT = 6379
+REDIS_DB = 0

@@ -9,6 +9,13 @@ from django.views.decorators.http import require_POST
 from django.http import HttpResponse
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from actions.utils import create_action
+import redis
+from django.conf import settings
+
+# соединить с redis
+r = redis.Redis(host=settings.REDIS_HOST,
+port=settings.REDIS_PORT,
+db=settings.REDIS_DB)
 
 @login_required
 def image_create(request):
@@ -35,7 +42,11 @@ def image_create(request):
 
 def image_detail(request, id, slug):
     image = get_object_or_404(Image, id=id, slug=slug)
-    return render(request, 'images/image/detail.html', {'section': 'images', 'image': image})
+    # увеличить общее число просмотров изображения на 1
+    total_views = r.incr(f'image:{image.id}:views')
+    # увеличить рейтинг изобажения на 1
+    r.zincrby('image_ranking', 1, image.id)
+    return render(request, 'images/image/detail.html', {'section': 'images', 'image': image, 'total_views': total_views})
 
 
 @login_required
@@ -58,24 +69,34 @@ def image_like(request):
 
 @login_required
 def image_list(request):
-    images = Image.objects.all()
-    paginator = Paginator(images, 8)
+    images_by_popularity = Image.objects.order_by('-total_likes')
+    paginator = Paginator(images_by_popularity, 8)
     page = request.GET.get('page')
     images_only = request.GET.get('images_only')
     try:
-        images = paginator.page(page)
+        images_by_popularity = paginator.page(page)
     except PageNotAnInteger:
         # If page is not an integer deliver the first page
-        images = paginator.page(1)
+        images_by_popularity = paginator.page(1)
     except EmptyPage:
         if images_only:
             # If AJAX request and page out of range
             # return an empty page
             return HttpResponse('')
         # If page out of range return last page of results
-        images = paginator.page(paginator.num_pages)
+        images_by_popularity = paginator.page(paginator.num_pages)
     if images_only:
         return render(request,
-                      'images/image/list_images.html', {'section': 'images', 'images': images})
+                      'images/image/list_images.html', {'section': 'images', 'images': images_by_popularity})
     return render(request,
-                  'images/image/list.html', {'section': 'images', 'images': images})
+                  'images/image/list.html', {'section': 'images', 'images': images_by_popularity})
+
+@login_required
+def image_ranking(request):
+    # получить словарь рейтинга изображений
+    image_ranking = r.zrange('image_ranking', 0, -1, desc=True)[:10]
+    image_ranking_ids = [int(id) for id in image_ranking]
+    # получить наиболее просматриваемые изображения
+    most_viewed = list(Image.objects.filter(id__in=image_ranking_ids))
+    most_viewed.sort(key=lambda x: image_ranking_ids.index(x.id))
+    return render(request, 'images/image/ranking.html', {'section': 'images', 'most_viewed': most_viewed})
